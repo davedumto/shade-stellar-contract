@@ -90,3 +90,23 @@ pub fn publish_merchant_verified_event(env: &Env, merchant_id: u64, status: bool
     }
     .publish(env);
 }
+
+#[contractevent]
+pub struct ContractPausedEvent {
+    pub admin: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_contract_paused_event(env: &Env, admin: Address, timestamp: u64) {
+    ContractPausedEvent { admin, timestamp }.publish(env);
+}
+
+#[contractevent]
+pub struct ContractUnpausedEvent {
+    pub admin: Address,
+    pub timestamp: u64,
+}
+
+pub fn publish_contract_unpaused_event(env: &Env, admin: Address, timestamp: u64) {
+    ContractUnpausedEvent { admin, timestamp }.publish(env);
+}
