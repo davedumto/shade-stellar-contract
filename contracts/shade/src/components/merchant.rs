@@ -105,7 +105,12 @@ pub fn set_merchant_key(env: &Env, merchant: &Address, key: &BytesN<32>) {
         .persistent()
         .set(&DataKey::MerchantKey(merchant.clone()), key);
 
-    events::publish_merchant_key_set_event(env, merchant.clone(), env.ledger().timestamp());
+    events::publish_merchant_key_set_event(
+        env,
+        merchant.clone(),
+        key.clone(),
+        env.ledger().timestamp(),
+    );
 }
 
 pub fn get_merchant_key(env: &Env, merchant: &Address) -> BytesN<32> {

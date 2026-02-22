@@ -7,7 +7,6 @@ pub fn add_accepted_token(env: &Env, admin: &Address, token: &Address) {
     reentrancy::enter(env);
     core::assert_admin(env, admin);
 
-    // Fail if the address is not a token contract.
     let _ = token::Client::new(env, token).symbol();
 
     let mut accepted_tokens = get_accepted_tokens(env);

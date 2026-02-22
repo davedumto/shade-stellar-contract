@@ -1,4 +1,4 @@
-use soroban_sdk::{contractevent, Address, Env};
+use soroban_sdk::{contractevent, Address, BytesN, Env};
 
 #[contractevent]
 pub struct InitalizedEvent {
@@ -94,12 +94,19 @@ pub fn publish_merchant_verified_event(env: &Env, merchant_id: u64, status: bool
 #[contractevent]
 pub struct MerchantKeySetEvent {
     pub merchant: Address,
+    pub key: BytesN<32>,
     pub timestamp: u64,
 }
 
-pub fn publish_merchant_key_set_event(env: &Env, merchant: Address, timestamp: u64) {
+pub fn publish_merchant_key_set_event(
+    env: &Env,
+    merchant: Address,
+    key: BytesN<32>,
+    timestamp: u64,
+) {
     MerchantKeySetEvent {
         merchant,
+        key,
         timestamp,
     }
     .publish(env);
