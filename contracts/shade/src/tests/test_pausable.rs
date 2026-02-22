@@ -118,7 +118,7 @@ fn test_pause_and_unpause_emit_expected_events() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #11)")]
+#[should_panic(expected = "HostError: Error(Contract, #10)")]
 fn test_assert_paused_panics_when_not_paused() {
     let (env, _client, contract_id, _admin) = setup_test();
 
@@ -128,7 +128,7 @@ fn test_assert_paused_panics_when_not_paused() {
 }
 
 #[test]
-#[should_panic(expected = "HostError: Error(Contract, #10)")]
+#[should_panic(expected = "HostError: Error(Contract, #9)")]
 fn test_assert_not_paused_panics_when_paused() {
     let (env, client, contract_id, admin) = setup_test();
     client.pause(&admin);

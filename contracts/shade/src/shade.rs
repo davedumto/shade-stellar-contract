@@ -1,6 +1,7 @@
 use crate::components::{
     access_control as access_control_component, admin as admin_component, core as core_component,
     invoice as invoice_component, merchant as merchant_component, pausable as pausable_component,
+    upgrade as upgrade_component,
 };
 use crate::errors::ContractError;
 use crate::events;
@@ -119,5 +120,9 @@ impl ShadeTrait for Shade {
 
     fn is_paused(env: Env) -> bool {
         pausable_component::is_paused(&env)
+    }
+
+    fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        upgrade_component::upgrade(&env, &new_wasm_hash);
     }
 }
