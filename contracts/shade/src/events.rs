@@ -187,4 +187,3 @@ pub fn publish_contract_upgraded_event(env: &Env, new_wasm_hash: BytesN<32>, tim
     }
     .publish(env);
 }
-
