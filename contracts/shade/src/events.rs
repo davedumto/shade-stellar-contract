@@ -97,6 +97,30 @@ pub fn publish_invoice_created_event(
 }
 
 #[contractevent]
+pub struct InvoiceRefundedEvent {
+    pub invoice_id: u64,
+    pub merchant: Address,
+    pub amount: i128,
+    pub timestamp: u64,
+}
+
+pub fn publish_invoice_refunded_event(
+    env: &Env,
+    invoice_id: u64,
+    merchant: Address,
+    amount: i128,
+    timestamp: u64,
+) {
+    InvoiceRefundedEvent {
+        invoice_id,
+        merchant,
+        amount,
+        timestamp,
+    }
+    .publish(env);
+}
+
+#[contractevent]
 pub struct MerchantVerifiedEvent {
     pub merchant_id: u64,
     pub status: bool,

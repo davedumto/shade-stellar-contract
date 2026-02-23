@@ -2,7 +2,10 @@ use crate::components::merchant;
 use crate::errors::ContractError;
 use crate::events;
 use crate::types::{DataKey, Invoice, InvoiceFilter, InvoiceStatus};
+use account::account::MerchantAccountClient;
 use soroban_sdk::{panic_with_error, Address, Env, String, Vec};
+
+pub const MAX_REFUND_DURATION: u64 = 604_800;
 
 pub fn create_invoice(
     env: &Env,
@@ -70,6 +73,55 @@ pub fn get_invoice(env: &Env, invoice_id: u64) -> Invoice {
         .persistent()
         .get(&DataKey::Invoice(invoice_id))
         .unwrap_or_else(|| panic_with_error!(env, ContractError::InvoiceNotFound))
+}
+
+pub fn refund_invoice(env: &Env, merchant_address: &Address, invoice_id: u64) {
+    merchant_address.require_auth();
+
+    let mut invoice = get_invoice(env, invoice_id);
+    if invoice.status != InvoiceStatus::Paid {
+        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
+    }
+
+    let merchant_id: u64 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantId(merchant_address.clone()))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::NotAuthorized));
+
+    if invoice.merchant_id != merchant_id {
+        panic_with_error!(env, ContractError::NotAuthorized);
+    }
+
+    let payer = invoice
+        .payer
+        .clone()
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::InvalidInvoiceStatus));
+    let date_paid = invoice
+        .date_paid
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::InvalidInvoiceStatus));
+    let now = env.ledger().timestamp();
+
+    if now < date_paid || now - date_paid > MAX_REFUND_DURATION {
+        panic_with_error!(env, ContractError::RefundPeriodExpired);
+    }
+
+    let merchant_account: Address = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantBalance(merchant_address.clone()))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantAccountNotFound));
+
+    let token = invoice.token.clone();
+    let amount = invoice.amount;
+    MerchantAccountClient::new(env, &merchant_account).refund(&token, &amount, &payer);
+
+    invoice.status = InvoiceStatus::Refunded;
+    env.storage()
+        .persistent()
+        .set(&DataKey::Invoice(invoice_id), &invoice);
+
+    events::publish_invoice_refunded_event(env, invoice_id, merchant_address.clone(), amount, now);
 }
 
 pub fn get_invoices(env: &Env, filter: InvoiceFilter) -> Vec<Invoice> {
