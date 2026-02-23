@@ -79,10 +79,7 @@ pub fn get_invoice(env: &Env, invoice_id: u64) -> Invoice {
 pub fn refund_invoice(env: &Env, merchant_address: &Address, invoice_id: u64) {
     merchant_address.require_auth();
 
-    let mut invoice = get_invoice(env, invoice_id);
-    if invoice.status != InvoiceStatus::Paid {
-        panic_with_error!(env, ContractError::InvalidInvoiceStatus);
-    }
+    let invoice = get_invoice(env, invoice_id);
 
     let merchant_id: u64 = env
         .storage()
@@ -94,35 +91,12 @@ pub fn refund_invoice(env: &Env, merchant_address: &Address, invoice_id: u64) {
         panic_with_error!(env, ContractError::NotAuthorized);
     }
 
-    let payer = invoice
-        .payer
-        .clone()
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::InvalidInvoiceStatus));
-    let date_paid = invoice
-        .date_paid
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::InvalidInvoiceStatus));
-    let now = env.ledger().timestamp();
-
-    if now < date_paid || now - date_paid > MAX_REFUND_DURATION {
-        panic_with_error!(env, ContractError::RefundPeriodExpired);
+    let amount_to_refund = invoice.amount - invoice.amount_refunded;
+    if amount_to_refund <= 0 {
+        panic_with_error!(env, ContractError::InvalidAmount);
     }
 
-    let merchant_account: Address = env
-        .storage()
-        .persistent()
-        .get(&DataKey::MerchantBalance(merchant_address.clone()))
-        .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantAccountNotFound));
-
-    let token = invoice.token.clone();
-    let amount = invoice.amount;
-    MerchantAccountClient::new(env, &merchant_account).refund(&token, &amount, &payer);
-
-    invoice.status = InvoiceStatus::Refunded;
-    env.storage()
-        .persistent()
-        .set(&DataKey::Invoice(invoice_id), &invoice);
-
-    events::publish_invoice_refunded_event(env, invoice_id, merchant_address.clone(), amount, now);
+    refund_invoice_partial(env, invoice_id, amount_to_refund);
 }
 
 pub fn get_invoices(env: &Env, filter: InvoiceFilter) -> Vec<Invoice> {
@@ -197,43 +171,48 @@ pub fn refund_invoice_partial(env: &Env, invoice_id: u64, amount: i128) {
         panic_with_error!(env, ContractError::InvalidAmount);
     }
 
-    let date_paid = invoice.date_paid.unwrap_or(0);
-    if env.ledger().timestamp() - date_paid > 604800 {
-        panic_with_error!(env, ContractError::RefundWindowExpired);
+    let date_paid = invoice
+        .date_paid
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::InvalidInvoiceStatus));
+    let now = env.ledger().timestamp();
+    if now < date_paid || now - date_paid > MAX_REFUND_DURATION {
+        panic_with_error!(env, ContractError::RefundPeriodExpired);
     }
 
-    let payer = invoice.payer.clone().unwrap();
-
-    let token = token::Client::new(env, &invoice.token);
-    token.transfer(&merchant_address, &payer, &amount);
+    let payer = invoice
+        .payer
+        .clone()
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::InvalidInvoiceStatus));
+    let merchant_account: Address = env
+        .storage()
+        .persistent()
+        .get(&DataKey::MerchantBalance(merchant_address.clone()))
+        .unwrap_or_else(|| panic_with_error!(env, ContractError::MerchantAccountNotFound));
+    let token = invoice.token.clone();
+    MerchantAccountClient::new(env, &merchant_account).refund(&token, &amount, &payer);
 
     invoice.amount_refunded += amount;
-    if invoice.amount_refunded == invoice.amount {
-        invoice.status = InvoiceStatus::Refunded;
+    let is_fully_refunded = invoice.amount_refunded == invoice.amount;
+    invoice.status = if is_fully_refunded {
+        InvoiceStatus::Refunded
     } else {
-        invoice.status = InvoiceStatus::PartiallyRefunded;
-    }
+        InvoiceStatus::PartiallyRefunded
+    };
 
     env.storage()
         .persistent()
         .set(&DataKey::Invoice(invoice_id), &invoice);
 
-    events::publish_invoice_partially_refunded_event(
-        env,
-        invoice_id,
-        merchant_address,
-        amount,
-        invoice.amount_refunded,
-        env.ledger().timestamp(),
-    );
-}
-
-pub fn refund_invoice(env: &Env, invoice_id: u64) {
-    let invoice = get_invoice(env, invoice_id);
-    let amount_to_refund = invoice.amount - invoice.amount_refunded;
-    if amount_to_refund > 0 {
-        refund_invoice_partial(env, invoice_id, amount_to_refund);
+    if is_fully_refunded {
+        events::publish_invoice_refunded_event(env, invoice_id, merchant_address, amount, now);
     } else {
-        panic_with_error!(env, ContractError::InvalidAmount);
+        events::publish_invoice_partially_refunded_event(
+            env,
+            invoice_id,
+            merchant_address,
+            amount,
+            invoice.amount_refunded,
+            now,
+        );
     }
 }
