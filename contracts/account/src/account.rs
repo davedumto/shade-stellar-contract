@@ -145,7 +145,6 @@ impl MerchantAccountTrait for MerchantAccount {
             .get(&DataKey::Verified)
             .unwrap_or(false)
     }
-<<<<<<< test/merchant-account-restriction
 
     fn restrict_account(env: Env, status: bool) {
         let manager = get_manager(&env);
@@ -159,7 +158,8 @@ impl MerchantAccountTrait for MerchantAccount {
 
     fn is_restricted_account(env: Env) -> bool {
         is_restricted_account(&env)
-=======
+    }
+
     fn withdraw_to(env: Env, token: Address, amount: i128, recipient: Address) {
         // Only the merchant can initiate withdrawals to another account
         let merchant: Address = env
@@ -179,6 +179,5 @@ impl MerchantAccountTrait for MerchantAccount {
         token_client.transfer(&env.current_contract_address(), &recipient, &amount);
 
         publish_withdrawal_to_event(&env, token, recipient, amount, env.ledger().timestamp());
->>>>>>> main
     }
 }
