@@ -148,6 +148,18 @@ pub fn get_invoices(env: &Env, filter: InvoiceFilter) -> Vec<Invoice> {
                 }
             }
 
+            if let Some(start_date) = filter.start_date {
+                if invoice.date_created < start_date {
+                    matches = false;
+                }
+            }
+
+            if let Some(end_date) = filter.end_date {
+                if invoice.date_created > end_date {
+                    matches = false;
+                }
+            }
+
             if matches {
                 invoices.push_back(invoice);
             }

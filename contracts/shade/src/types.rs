@@ -80,6 +80,8 @@ pub struct InvoiceFilter {
     pub merchant: Option<Address>,
     pub min_amount: Option<u128>,
     pub max_amount: Option<u128>,
+    pub start_date: Option<u64>,
+    pub end_date: Option<u64>,
 }
 
 #[contracttype]
